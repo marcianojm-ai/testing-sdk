@@ -1,0 +1,1 @@
+Testing SDK v0.1 compilavel. Abra no Android Studio e execute :sdk-core:assembleRelease.
