@@ -29,6 +29,9 @@ dependencies {
 
     // Biblioteca oficial do Google para ler o Referrer de instalação
     implementation("com.android.installreferrer:installreferrer:2.2")
+
+    // Monitor de ciclo de vida global do aplicativo (Sessão)
+    implementation("androidx.lifecycle:lifecycle-process:2.8.4")
 }
 
 // Configuração de publicação para o JitPack ler a biblioteca
