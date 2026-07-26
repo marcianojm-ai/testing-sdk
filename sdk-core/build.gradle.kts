@@ -1,7 +1,7 @@
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
-    id("maven-publish") // <-- 1. Adicionado o plugin aqui
+    id("maven-publish") // Plugin para o JitPack
 }
 
 android {
@@ -24,10 +24,14 @@ android {
 }
 
 dependencies {
+    // Inicialização autônoma do SDK
     implementation("androidx.startup:startup-runtime:1.2.0")
+
+    // Biblioteca oficial do Google para ler o Referrer de instalação
+    implementation("com.android.installreferrer:installreferrer:2.2")
 }
 
-// <-- 2. Adicionado este bloco inteiro no FINAL do arquivo, fora do bloco android { }
+// Configuração de publicação para o JitPack ler a biblioteca
 afterEvaluate {
     publishing {
         publications {
