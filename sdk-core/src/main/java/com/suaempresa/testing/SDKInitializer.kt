@@ -4,7 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.startup.Initializer
 
-class SDKInicializer : Initializer<Unit> {
+class SDKInitializer : Initializer<Unit> { // <-- NOME CORRIGIDO COM "Z"
 
     override fun create(context: Context) {
         Log.d("TestingSDK", "SDK Iniciando de forma invisível...")
