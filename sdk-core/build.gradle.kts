@@ -23,6 +23,10 @@ android {
     }
 }
 
+dependencies {
+    implementation("androidx.startup:startup-runtime:1.2.0")
+}
+
 // <-- 2. Adicionado este bloco inteiro no FINAL do arquivo, fora do bloco android { }
 afterEvaluate {
     publishing {

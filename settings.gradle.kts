@@ -17,6 +17,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "testing-sdk-v0.1"
+rootProject.name = "testing-sdk"
 
 include(":sdk-core")
