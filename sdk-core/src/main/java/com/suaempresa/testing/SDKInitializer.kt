@@ -5,26 +5,67 @@ import android.util.Log
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.startup.Initializer
 
+/**
+ * Inicializa automaticamente o SDK quando o aplicativo é aberto.
+ *
+ * O aplicativo hospedeiro não precisa chamar nenhum método manualmente.
+ */
 class SDKInitializer : Initializer<Unit> {
 
     override fun create(context: Context) {
-        Log.d("TestingSDK", "SDK Iniciando de forma invisível...")
+        val applicationContext =
+            context.applicationContext
 
-        // 1. Identidade do aparelho
-        val identityManager = IdentityManager(context)
-        val deviceId = identityManager.getOrCreateInstallationId()
-        Log.d("TestingSDK", "Identidade do celular garantida: $deviceId")
+        Log.d(
+            TAG,
+            "SDK iniciando automaticamente."
+        )
 
-        // 2. Leitura da Play Store
-        val referrerManager = InstallReferrerManager(context)
+        // 1. Gera ou recupera a identidade persistente do aparelho.
+        val identityManager =
+            IdentityManager(applicationContext)
+
+        val deviceId =
+            identityManager.getOrCreateInstallationId()
+
+        Log.d(
+            TAG,
+            "Identidade do aparelho: $deviceId"
+        )
+
+        // 2. Consulta e armazena o Google Play Install Referrer.
+        val referrerManager =
+            InstallReferrerManager(applicationContext)
+
         referrerManager.checkAndSendReferrer(deviceId)
 
-        // 3. Inicia o monitoramento de tempo de uso (Sessão)
-        val sessionManager = SessionManager(deviceId)
-        ProcessLifecycleOwner.get().lifecycle.addObserver(sessionManager)
+        // 3. Monitora e envia as sessões de uso.
+        val sessionManager = SessionManager(
+            context = applicationContext,
+            deviceId = deviceId
+        )
+
+        ProcessLifecycleOwner
+            .get()
+            .lifecycle
+            .addObserver(sessionManager)
+
+        Log.d(
+            TAG,
+            "SDK inicializado com sucesso."
+        )
     }
 
-    override fun dependencies(): List<Class<out Initializer<*>>> {
-        return listOf(androidx.lifecycle.ProcessLifecycleInitializer::class.java)
+    override fun dependencies():
+        List<Class<out Initializer<*>>> {
+
+        return listOf(
+            androidx.lifecycle
+                .ProcessLifecycleInitializer::class.java
+        )
+    }
+
+    companion object {
+        private const val TAG = "TestingSDK"
     }
 }

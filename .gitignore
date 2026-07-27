@@ -2,3 +2,4 @@
 /.gradle/
 /build/
 /sdk-core/build/
+.artifacts/

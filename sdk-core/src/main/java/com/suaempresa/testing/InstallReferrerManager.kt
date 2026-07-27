@@ -5,41 +5,116 @@ import android.util.Log
 import com.android.installreferrer.api.InstallReferrerClient
 import com.android.installreferrer.api.InstallReferrerStateListener
 
-class InstallReferrerManager(private val context: Context) {
+/**
+ * Consulta o Google Play Install Referrer e armazena
+ * o resultado localmente para uso nos eventos de sessão.
+ */
+internal class InstallReferrerManager(
+    context: Context
+) {
 
-    fun checkAndSendReferrer(installationId: String) {
-        val referrerClient = InstallReferrerClient.newBuilder(context).build()
+    private val applicationContext =
+        context.applicationContext
 
-        referrerClient.startConnection(object : InstallReferrerStateListener {
-            override fun onInstallReferrerSetupFinished(responseCode: Int) {
-                when (responseCode) {
-                    InstallReferrerClient.InstallReferrerResponse.OK -> {
+    private val referrerStore =
+        ReferrerStore(applicationContext)
+
+    /**
+     * Consulta o Install Referrer da Play Store.
+     *
+     * O identificador é usado apenas nos registros do Logcat.
+     */
+    fun checkAndSendReferrer(
+        installationId: String
+    ) {
+        val referrerClient =
+            InstallReferrerClient
+                .newBuilder(applicationContext)
+                .build()
+
+        referrerClient.startConnection(
+            object : InstallReferrerStateListener {
+
+                override fun onInstallReferrerSetupFinished(
+                    responseCode: Int
+                ) {
+                    try {
+                        when (responseCode) {
+                            InstallReferrerClient
+                                .InstallReferrerResponse.OK -> {
+
+                                val response =
+                                    referrerClient.installReferrer
+
+                                val referrerUrl =
+                                    response.installReferrer
+
+                                referrerStore.save(referrerUrl)
+
+                                Log.d(
+                                    TAG,
+                                    "Install Referrer salvo para " +
+                                        "o aparelho [$installationId]: " +
+                                        referrerUrl
+                                )
+                            }
+
+                            InstallReferrerClient
+                                .InstallReferrerResponse
+                                .FEATURE_NOT_SUPPORTED -> {
+
+                                Log.d(
+                                    TAG,
+                                    "Install Referrer não é " +
+                                        "suportado neste aparelho."
+                                )
+                            }
+
+                            InstallReferrerClient
+                                .InstallReferrerResponse
+                                .SERVICE_UNAVAILABLE -> {
+
+                                Log.d(
+                                    TAG,
+                                    "Serviço do Install Referrer " +
+                                        "indisponível no momento."
+                                )
+                            }
+
+                            else -> {
+                                Log.d(
+                                    TAG,
+                                    "Install Referrer não disponível. " +
+                                        "Código: $responseCode"
+                                )
+                            }
+                        }
+                    } catch (exception: Exception) {
+                        Log.e(
+                            TAG,
+                            "Erro ao consultar o Install Referrer.",
+                            exception
+                        )
+                    } finally {
                         try {
-                            // Sucesso! A Play Store respondeu. Vamos pegar a anotação:
-                            val response = referrerClient.installReferrer
-                            val referrerUrl = response.installReferrer
-
-                            // Aqui é onde nós capturamos o token mágico que veio do seu site
-                            Log.d("TestingSDK", "Aparelho [$installationId] veio do link: $referrerUrl")
-
-                            // No futuro, enviaremos essa dupla (Aparelho + Link) para o seu Banco de Dados
-
-                        } catch (e: Exception) {
-                            Log.e("TestingSDK", "Erro ao ler a Play Store", e)
-                        } finally {
-                            // Fechamos a porta educadamente para não gastar bateria do usuário
                             referrerClient.endConnection()
+                        } catch (_: Exception) {
+                            // A conexão já pode estar encerrada.
                         }
                     }
-                    else -> {
-                        Log.d("TestingSDK", "Sem anotações da Play Store no momento.")
-                    }
+                }
+
+                override fun onInstallReferrerServiceDisconnected() {
+                    Log.d(
+                        TAG,
+                        "Serviço do Install Referrer desconectado."
+                    )
                 }
             }
+        )
+    }
 
-            override fun onInstallReferrerServiceDisconnected() {
-                // Se a Play Store cair no meio do processo, ignoramos por enquanto.
-            }
-        })
+    companion object {
+        private const val TAG = "TestingSDK"
     }
 }
