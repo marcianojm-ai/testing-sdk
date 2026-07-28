@@ -10,7 +10,8 @@ import androidx.lifecycle.LifecycleOwner
  * Monitora quando o aplicativo entra em primeiro plano
  * e quando deixa de estar visível.
  *
- * Toda a coleta e o envio permanecem internos ao SDK.
+ * Os eventos são colocados em uma fila persistente
+ * gerenciada pelo WorkManager.
  */
 internal class SessionManager(
     context: Context,
@@ -29,15 +30,18 @@ internal class SessionManager(
     private val installSourceDetector =
         InstallSourceDetector(applicationContext)
 
-    private val eventApiClient =
-        EventApiClient()
+    private val eventWorkScheduler =
+        EventWorkScheduler(applicationContext)
 
     private var sessionStartTimeMs: Long = 0L
 
     /**
-     * Chamado quando o aplicativo entra em primeiro plano.
+     * Chamado quando o aplicativo entra
+     * em primeiro plano.
      */
-    override fun onStart(owner: LifecycleOwner) {
+    override fun onStart(
+        owner: LifecycleOwner
+    ) {
         if (sessionStartTimeMs > 0L) {
             return
         }
@@ -58,31 +62,36 @@ internal class SessionManager(
                 null
             }
 
-        val payload = SessionEventPayload(
-            packageName = packageName,
-            deviceId = deviceId,
-            eventType =
-                SessionEventPayload.SESSION_START,
-            durationSeconds = 0L,
-            referrer = referrer,
-            installSource = installSource
-        )
+        val payload =
+            SessionEventPayload(
+                packageName = packageName,
+                deviceId = deviceId,
+                eventType =
+                    SessionEventPayload.SESSION_START,
+                durationSeconds = 0L,
+                referrer = referrer,
+                installSource = installSource
+            )
 
-        eventApiClient.send(payload)
+        eventWorkScheduler.enqueue(payload)
 
         Log.d(
             TAG,
             "--> session_start: " +
                 "O testador [$deviceId] abriu " +
                 "o aplicativo [$packageName]. " +
-                "Origem: [$installSource]."
+                "Origem: [$installSource]. " +
+                "Evento adicionado à fila."
         )
     }
 
     /**
-     * Chamado quando o aplicativo vai para segundo plano.
+     * Chamado quando o aplicativo vai
+     * para segundo plano.
      */
-    override fun onStop(owner: LifecycleOwner) {
+    override fun onStop(
+        owner: LifecycleOwner
+    ) {
         val inicioSessao =
             sessionStartTimeMs
 
@@ -91,8 +100,9 @@ internal class SessionManager(
         }
 
         /*
-         * Zeramos imediatamente para impedir que o mesmo
-         * encerramento seja processado duas vezes.
+         * Zeramos imediatamente para impedir
+         * que o mesmo encerramento seja
+         * processado duas vezes.
          */
         sessionStartTimeMs = 0L
 
@@ -118,17 +128,19 @@ internal class SessionManager(
                 null
             }
 
-        val payload = SessionEventPayload(
-            packageName = packageName,
-            deviceId = deviceId,
-            eventType =
-                SessionEventPayload.SESSION_END,
-            durationSeconds = duracaoSegundos,
-            referrer = referrer,
-            installSource = installSource
-        )
+        val payload =
+            SessionEventPayload(
+                packageName = packageName,
+                deviceId = deviceId,
+                eventType =
+                    SessionEventPayload.SESSION_END,
+                durationSeconds =
+                    duracaoSegundos,
+                referrer = referrer,
+                installSource = installSource
+            )
 
-        eventApiClient.send(payload)
+        eventWorkScheduler.enqueue(payload)
 
         Log.d(
             TAG,
@@ -136,7 +148,8 @@ internal class SessionManager(
                 "O testador [$deviceId] usou " +
                 "o aplicativo [$packageName] por " +
                 "$duracaoSegundos segundos. " +
-                "Origem: [$installSource]."
+                "Origem: [$installSource]. " +
+                "Evento adicionado à fila."
         )
     }
 

@@ -5,41 +5,46 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
-import java.util.concurrent.Executors
+
+/**
+ * Resultado de uma tentativa de envio ao backend.
+ */
+internal enum class EventSendResult {
+    SUCCESS,
+    RETRY,
+    FAILURE
+}
 
 /**
  * Cliente HTTP interno do SDK.
  *
- * Envia eventos de sessão ao backend sem bloquear
- * a thread principal do aplicativo.
+ * O envio é executado pelo EventUploadWorker
+ * em uma thread de segundo plano.
  */
 internal class EventApiClient {
 
     /**
-     * Envia um evento de sessão ao backend.
+     * Executa o envio do evento ao backend.
      *
-     * @param payload Dados já preparados pelo SDK.
+     * Esse método é chamado pelo WorkManager.
      */
-    fun send(payload: SessionEventPayload) {
-        networkExecutor.execute {
-            executeRequest(payload)
-        }
-    }
-
-    private fun executeRequest(
+    fun sendBlocking(
         payload: SessionEventPayload
-    ) {
+    ): EventSendResult {
         var connection: HttpURLConnection? = null
 
-        try {
-            val url = URL(SdkConfig.EVENTS_ENDPOINT)
+        return try {
+            val url =
+                URL(SdkConfig.EVENTS_ENDPOINT)
 
             connection =
                 url.openConnection() as HttpURLConnection
 
             connection.requestMethod = "POST"
+
             connection.connectTimeout =
                 SdkConfig.CONNECTION_TIMEOUT_MS
+
             connection.readTimeout =
                 SdkConfig.READ_TIMEOUT_MS
 
@@ -68,7 +73,9 @@ internal class EventApiClient {
                 requestBytes.size
             )
 
-            connection.outputStream.use { outputStream ->
+            connection.outputStream.use {
+                    outputStream ->
+
                 outputStream.write(requestBytes)
                 outputStream.flush()
             }
@@ -82,37 +89,77 @@ internal class EventApiClient {
                     responseCode
                 )
 
-            if (responseCode in 200..299) {
-                Log.d(
-                    TAG,
-                    "Evento ${payload.eventType} enviado " +
-                        "com sucesso. HTTP $responseCode. " +
-                        responseText
-                )
-            } else {
-                Log.w(
-                    TAG,
-                    "Backend recusou o evento " +
-                        "${payload.eventType}. " +
-                        "HTTP $responseCode. " +
-                        responseText
-                )
+            when {
+                responseCode in 200..299 -> {
+                    Log.d(
+                        TAG,
+                        "Evento ${payload.eventType} enviado " +
+                                "com sucesso. HTTP $responseCode. " +
+                                responseText
+                    )
+
+                    EventSendResult.SUCCESS
+                }
+
+                deveTentarNovamente(
+                    responseCode
+                ) -> {
+                    Log.w(
+                        TAG,
+                        "Falha temporária ao enviar " +
+                                "${payload.eventType}. " +
+                                "HTTP $responseCode. " +
+                                "Uma nova tentativa será realizada. " +
+                                responseText
+                    )
+
+                    EventSendResult.RETRY
+                }
+
+                else -> {
+                    Log.w(
+                        TAG,
+                        "Backend recusou definitivamente " +
+                                "o evento ${payload.eventType}. " +
+                                "HTTP $responseCode. " +
+                                responseText
+                    )
+
+                    EventSendResult.FAILURE
+                }
             }
         } catch (exception: Exception) {
             Log.e(
                 TAG,
-                "Falha ao enviar o evento " +
-                    "${payload.eventType}.",
+                "Falha de conexão ao enviar o evento " +
+                        "${payload.eventType}. " +
+                        "Uma nova tentativa será realizada.",
                 exception
             )
+
+            EventSendResult.RETRY
         } finally {
             connection?.disconnect()
         }
     }
 
     /**
-     * Converte o modelo interno para os nomes de campos
-     * esperados pelo backend.
+     * Define quais respostas HTTP são temporárias.
+     */
+    private fun deveTentarNovamente(
+        responseCode: Int
+    ): Boolean {
+        return (
+                responseCode == 408 ||
+                        responseCode == 425 ||
+                        responseCode == 429 ||
+                        responseCode in 500..599
+                )
+    }
+
+    /**
+     * Converte o evento para o JSON esperado
+     * pelo backend.
      */
     private fun createRequestBody(
         payload: SessionEventPayload
@@ -142,10 +189,11 @@ internal class EventApiClient {
                 "sdk_version",
                 SdkConfig.SDK_VERSION
             )
-put(
-    "install_source",
-    payload.installSource
-)
+
+            put(
+                "install_source",
+                payload.installSource
+            )
 
             if (payload.referrer != null) {
                 put(
@@ -162,7 +210,7 @@ put(
     }
 
     /**
-     * Lê a resposta de sucesso ou de erro devolvida pelo backend.
+     * Lê a resposta retornada pelo backend.
      */
     private fun readResponse(
         connection: HttpURLConnection,
@@ -191,12 +239,5 @@ put(
     companion object {
         private const val TAG =
             "TestingSDK"
-
-        /**
-         * Uma única fila de envio evita criar uma nova
-         * thread para cada evento.
-         */
-        private val networkExecutor =
-            Executors.newSingleThreadExecutor()
     }
 }
