@@ -26,6 +26,9 @@ internal class SessionManager(
     private val referrerStore =
         ReferrerStore(applicationContext)
 
+    private val installSourceDetector =
+        InstallSourceDetector(applicationContext)
+
     private val eventApiClient =
         EventApiClient()
 
@@ -42,13 +45,27 @@ internal class SessionManager(
         sessionStartTimeMs =
             SystemClock.elapsedRealtime()
 
+        val installSource =
+            installSourceDetector.detect()
+
+        val referrer =
+            if (
+                installSource ==
+                InstallSourceDetector.GOOGLE_PLAY
+            ) {
+                referrerStore.get()
+            } else {
+                null
+            }
+
         val payload = SessionEventPayload(
             packageName = packageName,
             deviceId = deviceId,
             eventType =
                 SessionEventPayload.SESSION_START,
             durationSeconds = 0L,
-            referrer = referrerStore.get()
+            referrer = referrer,
+            installSource = installSource
         )
 
         eventApiClient.send(payload)
@@ -57,7 +74,8 @@ internal class SessionManager(
             TAG,
             "--> session_start: " +
                 "O testador [$deviceId] abriu " +
-                "o aplicativo [$packageName]."
+                "o aplicativo [$packageName]. " +
+                "Origem: [$installSource]."
         )
     }
 
@@ -65,7 +83,8 @@ internal class SessionManager(
      * Chamado quando o aplicativo vai para segundo plano.
      */
     override fun onStop(owner: LifecycleOwner) {
-        val inicioSessao = sessionStartTimeMs
+        val inicioSessao =
+            sessionStartTimeMs
 
         if (inicioSessao <= 0L) {
             return
@@ -86,13 +105,27 @@ internal class SessionManager(
         val duracaoSegundos =
             duracaoMillis / 1_000L
 
+        val installSource =
+            installSourceDetector.detect()
+
+        val referrer =
+            if (
+                installSource ==
+                InstallSourceDetector.GOOGLE_PLAY
+            ) {
+                referrerStore.get()
+            } else {
+                null
+            }
+
         val payload = SessionEventPayload(
             packageName = packageName,
             deviceId = deviceId,
             eventType =
                 SessionEventPayload.SESSION_END,
             durationSeconds = duracaoSegundos,
-            referrer = referrerStore.get()
+            referrer = referrer,
+            installSource = installSource
         )
 
         eventApiClient.send(payload)
@@ -102,11 +135,13 @@ internal class SessionManager(
             "<-- session_end: " +
                 "O testador [$deviceId] usou " +
                 "o aplicativo [$packageName] por " +
-                "$duracaoSegundos segundos."
+                "$duracaoSegundos segundos. " +
+                "Origem: [$installSource]."
         )
     }
 
     companion object {
-        private const val TAG = "TestingSDK"
+        private const val TAG =
+            "TestingSDK"
     }
 }

@@ -142,6 +142,10 @@ internal class EventApiClient {
                 "sdk_version",
                 SdkConfig.SDK_VERSION
             )
+put(
+    "install_source",
+    payload.installSource
+)
 
             if (payload.referrer != null) {
                 put(

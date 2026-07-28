@@ -1,6 +1,7 @@
 package com.suaempresa.testing
 
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import com.android.installreferrer.api.InstallReferrerClient
 import com.android.installreferrer.api.InstallReferrerStateListener
@@ -20,13 +21,25 @@ internal class InstallReferrerManager(
         ReferrerStore(applicationContext)
 
     /**
-     * Consulta o Install Referrer da Play Store.
-     *
-     * O identificador é usado apenas nos registros do Logcat.
+     * Consulta o Install Referrer somente quando o aplicativo
+     * atual foi instalado ou atualizado pela Google Play.
      */
     fun checkAndSendReferrer(
         installationId: String
     ) {
+        if (!foiInstaladoPelaGooglePlay()) {
+            referrerStore.clear()
+
+            Log.d(
+                TAG,
+                "Aplicativo não foi instalado pela Google Play. " +
+                    "Referrer local removido para o aparelho " +
+                    "[$installationId]."
+            )
+
+            return
+        }
+
         val referrerClient =
             InstallReferrerClient
                 .newBuilder(applicationContext)
@@ -62,6 +75,8 @@ internal class InstallReferrerManager(
                             InstallReferrerClient
                                 .InstallReferrerResponse
                                 .FEATURE_NOT_SUPPORTED -> {
+
+                                referrerStore.clear()
 
                                 Log.d(
                                     TAG,
@@ -114,7 +129,59 @@ internal class InstallReferrerManager(
         )
     }
 
+    /**
+     * Verifica o instalador registrado pelo Android.
+     */
+    private fun foiInstaladoPelaGooglePlay(): Boolean {
+        return try {
+            val packageManager =
+                applicationContext.packageManager
+
+            val packageName =
+                applicationContext.packageName
+
+            if (
+                Build.VERSION.SDK_INT >=
+                Build.VERSION_CODES.R
+            ) {
+                val installSourceInfo =
+                    packageManager.getInstallSourceInfo(
+                        packageName
+                    )
+
+                val instalador =
+                    installSourceInfo.installingPackageName
+
+                val iniciador =
+                    installSourceInfo.initiatingPackageName
+
+                instalador == GOOGLE_PLAY_PACKAGE ||
+                    iniciador == GOOGLE_PLAY_PACKAGE
+            } else {
+                @Suppress("DEPRECATION")
+                val instalador =
+                    packageManager.getInstallerPackageName(
+                        packageName
+                    )
+
+                instalador == GOOGLE_PLAY_PACKAGE
+            }
+        } catch (exception: Exception) {
+            Log.e(
+                TAG,
+                "Não foi possível identificar a origem " +
+                    "da instalação.",
+                exception
+            )
+
+            false
+        }
+    }
+
     companion object {
         private const val TAG = "TestingSDK"
+
+        private const val GOOGLE_PLAY_PACKAGE =
+            "com.android.vending"
     }
 }

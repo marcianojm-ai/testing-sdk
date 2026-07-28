@@ -24,14 +24,31 @@ internal class ReferrerStore(context: Context) {
 
         preferences
             .edit()
-            .putString(KEY_INSTALL_REFERRER, referrer.trim())
+            .putString(
+                KEY_INSTALL_REFERRER,
+                referrer.trim()
+            )
             .apply()
     }
 
     fun get(): String? {
         return preferences
-            .getString(KEY_INSTALL_REFERRER, null)
+            .getString(
+                KEY_INSTALL_REFERRER,
+                null
+            )
             ?.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * Remove um referrer antigo ou incompatível
+     * com a origem atual da instalação.
+     */
+    fun clear() {
+        preferences
+            .edit()
+            .remove(KEY_INSTALL_REFERRER)
+            .apply()
     }
 
     companion object {

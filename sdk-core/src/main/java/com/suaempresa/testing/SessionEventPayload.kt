@@ -8,7 +8,9 @@ internal data class SessionEventPayload(
     val deviceId: String,
     val eventType: String,
     val durationSeconds: Long = 0,
-    val referrer: String? = null
+    val referrer: String? = null,
+    val installSource: String =
+        InstallSourceDetector.UNKNOWN
 ) {
 
     init {
@@ -30,10 +32,28 @@ internal data class SessionEventPayload(
         require(durationSeconds >= 0) {
             "durationSeconds não pode ser negativo."
         }
+
+        require(
+            installSource in
+                INSTALL_SOURCES_PERMITIDAS
+        ) {
+            "installSource inválido."
+        }
     }
 
     companion object {
-        const val SESSION_START = "session_start"
-        const val SESSION_END = "session_end"
+        const val SESSION_START =
+            "session_start"
+
+        const val SESSION_END =
+            "session_end"
+
+        private val INSTALL_SOURCES_PERMITIDAS =
+            setOf(
+                InstallSourceDetector.GOOGLE_PLAY,
+                InstallSourceDetector.DEVELOPMENT,
+                InstallSourceDetector.EXTERNAL,
+                InstallSourceDetector.UNKNOWN
+            )
     }
 }
