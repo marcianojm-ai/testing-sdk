@@ -29,20 +29,24 @@ internal class InstallSourceDetector(
      */
     fun detect(): String {
         return try {
+            /*
+             * Builds debuggable têm prioridade.
+             * Assim, aplicativos executados pelo Android Studio
+             * nunca serão confundidos com instalações da Play Store.
+             */
+            if (isDebuggableApplication()) {
+                return DEVELOPMENT
+            }
+
             val installerPackage =
                 getInstallerPackageName()
 
-            when {
-                installerPackage ==
-                    GOOGLE_PLAY_PACKAGE -> {
+            when (installerPackage) {
+                GOOGLE_PLAY_PACKAGE -> {
                     GOOGLE_PLAY
                 }
 
-                isDebuggableApplication() -> {
-                    DEVELOPMENT
-                }
-
-                installerPackage.isNullOrBlank() -> {
+                null, "" -> {
                     EXTERNAL
                 }
 
@@ -60,13 +64,6 @@ internal class InstallSourceDetector(
 
             UNKNOWN
         }
-    }
-
-    /**
-     * Confirma se a instalação atual veio da Google Play.
-     */
-    fun isInstalledFromGooglePlay(): Boolean {
-        return detect() == GOOGLE_PLAY
     }
 
     private fun getInstallerPackageName(): String? {
