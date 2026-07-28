@@ -30,6 +30,16 @@ internal class EventUploadWorker(
                 KEY_DEVICE_ID
             )
 
+        /*
+         * Eventos criados por versões anteriores do SDK
+         * podem não possuir eventId. Nesse caso, o próprio
+         * ID persistente do WorkManager é utilizado.
+         */
+        val eventId =
+            inputData.getString(
+                KEY_EVENT_ID
+            ) ?: id.toString()
+
         val eventType =
             inputData.getString(
                 KEY_EVENT_TYPE
@@ -59,7 +69,7 @@ internal class EventUploadWorker(
             Log.e(
                 TAG,
                 "Evento descartado porque os dados " +
-                    "obrigatórios estão ausentes."
+                        "obrigatórios estão ausentes."
             )
 
             return Result.failure()
@@ -75,13 +85,14 @@ internal class EventUploadWorker(
                         durationSeconds,
                     referrer = referrer,
                     installSource =
-                        installSource
+                        installSource,
+                    eventId = eventId
                 )
             } catch (exception: Exception) {
                 Log.e(
                     TAG,
                     "Evento descartado porque os dados " +
-                        "armazenados são inválidos.",
+                            "armazenados são inválidos.",
                     exception
                 )
 
@@ -96,7 +107,8 @@ internal class EventUploadWorker(
                 Log.d(
                     TAG,
                     "Evento ${payload.eventType} " +
-                        "confirmado pelo backend."
+                            "confirmado pelo backend. " +
+                            "Event ID: ${payload.eventId}"
                 )
 
                 Result.success()
@@ -106,7 +118,8 @@ internal class EventUploadWorker(
                 Log.w(
                     TAG,
                     "Evento ${payload.eventType} " +
-                        "será enviado novamente."
+                            "será enviado novamente. " +
+                            "Event ID: ${payload.eventId}"
                 )
 
                 Result.retry()
@@ -116,7 +129,8 @@ internal class EventUploadWorker(
                 Log.e(
                     TAG,
                     "Evento ${payload.eventType} " +
-                        "foi recusado definitivamente."
+                            "foi recusado definitivamente. " +
+                            "Event ID: ${payload.eventId}"
                 )
 
                 Result.failure()
@@ -130,6 +144,9 @@ internal class EventUploadWorker(
 
         internal const val KEY_DEVICE_ID =
             "device_id"
+
+        internal const val KEY_EVENT_ID =
+            "event_id"
 
         internal const val KEY_EVENT_TYPE =
             "event_type"

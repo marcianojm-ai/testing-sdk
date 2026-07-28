@@ -1,5 +1,7 @@
 package com.suaempresa.testing
 
+import java.util.UUID
+
 /**
  * Representa um evento enviado pelo SDK ao backend.
  */
@@ -10,7 +12,9 @@ internal data class SessionEventPayload(
     val durationSeconds: Long = 0,
     val referrer: String? = null,
     val installSource: String =
-        InstallSourceDetector.UNKNOWN
+        InstallSourceDetector.UNKNOWN,
+    val eventId: String =
+        UUID.randomUUID().toString()
 ) {
 
     init {
@@ -24,7 +28,7 @@ internal data class SessionEventPayload(
 
         require(
             eventType == SESSION_START ||
-                eventType == SESSION_END
+                    eventType == SESSION_END
         ) {
             "eventType deve ser session_start ou session_end."
         }
@@ -35,9 +39,13 @@ internal data class SessionEventPayload(
 
         require(
             installSource in
-                INSTALL_SOURCES_PERMITIDAS
+                    INSTALL_SOURCES_PERMITIDAS
         ) {
             "installSource inválido."
+        }
+
+        require(eventId.isNotBlank()) {
+            "eventId não pode estar vazio."
         }
     }
 

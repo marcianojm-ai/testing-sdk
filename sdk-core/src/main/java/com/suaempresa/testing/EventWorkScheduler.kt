@@ -55,6 +55,9 @@ internal class EventWorkScheduler(
                 .addTag(
                     "${WORK_TAG}_${payload.deviceId}"
                 )
+                .addTag(
+                    "${WORK_TAG}_${payload.eventId}"
+                )
                 .build()
 
         /*
@@ -73,8 +76,9 @@ internal class EventWorkScheduler(
         Log.d(
             TAG,
             "Evento ${payload.eventType} colocado " +
-                "na fila persistente. " +
-                "Work ID: ${workRequest.id}"
+                    "na fila persistente. " +
+                    "Event ID: ${payload.eventId}. " +
+                    "Work ID: ${workRequest.id}"
         )
     }
 
@@ -86,10 +90,10 @@ internal class EventWorkScheduler(
         payload: SessionEventPayload
     ): String {
         return (
-            "${WORK_NAME_PREFIX}_" +
-                "${payload.packageName}_" +
-                payload.deviceId
-            )
+                "${WORK_NAME_PREFIX}_" +
+                        "${payload.packageName}_" +
+                        payload.deviceId
+                )
     }
 
     /**
@@ -107,6 +111,10 @@ internal class EventWorkScheduler(
                 .putString(
                     EventUploadWorker.KEY_DEVICE_ID,
                     payload.deviceId
+                )
+                .putString(
+                    EventUploadWorker.KEY_EVENT_ID,
+                    payload.eventId
                 )
                 .putString(
                     EventUploadWorker.KEY_EVENT_TYPE,

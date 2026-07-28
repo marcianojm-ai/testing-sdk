@@ -176,6 +176,11 @@ internal class EventApiClient {
             )
 
             put(
+                "event_id",
+                payload.eventId
+            )
+
+            put(
                 "tipo_evento",
                 payload.eventType
             )
