@@ -40,6 +40,14 @@ internal class EventUploadWorker(
                 KEY_EVENT_ID
             ) ?: id.toString()
 
+        val occurredAtEpochMs =
+            inputData.getLong(
+                KEY_OCCURRED_AT_EPOCH_MS,
+                0L
+            ).takeIf {
+                it > 0L
+            } ?: System.currentTimeMillis()
+
         val eventType =
             inputData.getString(
                 KEY_EVENT_TYPE
@@ -86,7 +94,8 @@ internal class EventUploadWorker(
                     referrer = referrer,
                     installSource =
                         installSource,
-                    eventId = eventId
+                    eventId = eventId,
+                    occurredAtEpochMs = occurredAtEpochMs
                 )
             } catch (exception: Exception) {
                 Log.e(
@@ -144,6 +153,9 @@ internal class EventUploadWorker(
 
         internal const val KEY_DEVICE_ID =
             "device_id"
+
+        internal const val KEY_OCCURRED_AT_EPOCH_MS =
+            "occurred_at_epoch_ms"
 
         internal const val KEY_EVENT_ID =
             "event_id"

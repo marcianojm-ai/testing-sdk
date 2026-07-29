@@ -181,6 +181,11 @@ internal class EventApiClient {
             )
 
             put(
+                "occurred_at_epoch_ms",
+                payload.occurredAtEpochMs
+            )
+
+            put(
                 "tipo_evento",
                 payload.eventType
             )

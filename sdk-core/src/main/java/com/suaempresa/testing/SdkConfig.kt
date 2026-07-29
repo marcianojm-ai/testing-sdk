@@ -11,7 +11,7 @@ package com.suaempresa.testing
  */
 internal object SdkConfig {
 
-    const val SDK_VERSION = "1.0.9"
+    const val SDK_VERSION = "1.0.10"
 
     const val API_BASE_URL =
         "http://192.168.100.3:5001/" +

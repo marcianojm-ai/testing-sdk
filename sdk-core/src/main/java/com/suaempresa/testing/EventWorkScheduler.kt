@@ -116,9 +116,9 @@ internal class EventWorkScheduler(
                     EventUploadWorker.KEY_EVENT_ID,
                     payload.eventId
                 )
-                .putString(
-                    EventUploadWorker.KEY_EVENT_TYPE,
-                    payload.eventType
+                .putLong(
+                    "occurred_at_epoch_ms",
+                    payload.occurredAtEpochMs,
                 )
                 .putLong(
                     EventUploadWorker.KEY_DURATION_SECONDS,

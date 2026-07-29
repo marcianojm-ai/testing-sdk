@@ -14,7 +14,9 @@ internal data class SessionEventPayload(
     val installSource: String =
         InstallSourceDetector.UNKNOWN,
     val eventId: String =
-        UUID.randomUUID().toString()
+        UUID.randomUUID().toString(),
+    val occurredAtEpochMs: Long =
+        System.currentTimeMillis()
 ) {
 
     init {
@@ -46,6 +48,10 @@ internal data class SessionEventPayload(
 
         require(eventId.isNotBlank()) {
             "eventId não pode estar vazio."
+        }
+
+        require(occurredAtEpochMs > 0L) {
+            "occurredAtEpochMs deve ser positivo."
         }
     }
 
