@@ -22,14 +22,12 @@ class SDKInitializer : Initializer<Unit> {
         )
 
         /*
-         * O installation_id identifica somente a instalação atual.
-         * Ele não representa a identidade global do testador.
+         * Identifica somente a instalação atual.
+         * Não representa a identidade global do testador.
          */
-        val identityManager =
-            IdentityManager(applicationContext)
-
         val installationId =
-            identityManager.getOrCreateInstallationId()
+            IdentityManager(applicationContext)
+                .getOrCreateInstallationId()
 
         Log.d(
             TAG,
@@ -37,23 +35,22 @@ class SDKInitializer : Initializer<Unit> {
         )
 
         /*
-         * A consulta ao Install Referrer é assíncrona
-         * e não bloqueia a abertura do aplicativo.
+         * Consulta o Install Referrer sem interferir
+         * no novo fluxo de check-in.
          */
-        val referrerManager =
-            InstallReferrerManager(applicationContext)
-
-        referrerManager.checkAndSendReferrer(
-            installationId
-        )
+        InstallReferrerManager(applicationContext)
+            .checkAndSendReferrer(
+                installationId
+            )
 
         /*
-         * A geração do fingerprint e a consulta HTTP
-         * são executadas fora da thread principal.
+         * Fingerprint e requisição HTTP são processados
+         * fora da thread principal.
          */
         SDK_EXECUTOR.execute {
-            consultarStatusRemoto(
-                applicationContext
+            validarEPrepararSdk(
+                context = applicationContext,
+                installationId = installationId
             )
         }
 
@@ -63,8 +60,9 @@ class SDKInitializer : Initializer<Unit> {
         )
     }
 
-    private fun consultarStatusRemoto(
-        context: Context
+    private fun validarEPrepararSdk(
+        context: Context,
+        installationId: String
     ) {
         try {
             val fingerprintProvider =
@@ -74,7 +72,8 @@ class SDKInitializer : Initializer<Unit> {
                 fingerprintProvider.getPackageName()
 
             val appFingerprint =
-                fingerprintProvider.getAppFingerprint()
+                fingerprintProvider
+                    .getAppFingerprint()
 
             val status =
                 SdkStatusClient().checkBlocking(
@@ -86,15 +85,15 @@ class SDKInitializer : Initializer<Unit> {
                 SdkRemoteStatus.ACTIVE -> {
                     Log.d(
                         TAG,
-                        "SDK autorizado. O aplicativo está apto " +
-                                "para iniciar o novo fluxo de check-in."
+                        "SDK autorizado pelo backend."
                     )
 
-                    /*
-                     * O novo gerenciador de check-in será
-                     * conectado aqui depois que suas rotas
-                     * autenticadas estiverem disponíveis.
-                     */
+                    prepararMonitoramento(
+                        context = context,
+                        packageName = packageName,
+                        appFingerprint = appFingerprint,
+                        installationId = installationId
+                    )
                 }
 
                 SdkRemoteStatus.NEWLY_ASSOCIATED -> {
@@ -109,15 +108,14 @@ class SDKInitializer : Initializer<Unit> {
                 SdkRemoteStatus.INACTIVE -> {
                     Log.d(
                         TAG,
-                        "SDK inativo para este aplicativo. " +
-                                "Nenhum uso será contabilizado."
+                        "SDK inativo. Nenhum uso será contabilizado."
                     )
                 }
 
                 SdkRemoteStatus.UNAVAILABLE -> {
                     Log.w(
                         TAG,
-                        "Não foi possível validar o SDK. " +
+                        "Status remoto indisponível. " +
                                 "Nenhum uso será contabilizado."
                     )
                 }
@@ -125,17 +123,48 @@ class SDKInitializer : Initializer<Unit> {
         } catch (exception: Exception) {
             Log.e(
                 TAG,
-                "Erro durante a validação inicial do SDK. " +
-                        "Nenhum uso será contabilizado.",
+                "Erro durante a validação inicial do SDK.",
                 exception
             )
         }
     }
 
+    /**
+     * Ponto único de conexão do novo fluxo.
+     *
+     * O SessionManager antigo não deve ser utilizado aqui.
+     */
+    private fun prepararMonitoramento(
+        context: Context,
+        packageName: String,
+        appFingerprint: String,
+        installationId: String
+    ) {
+        Log.d(
+            TAG,
+            "Aplicativo preparado para o novo check-in: " +
+                    "package=[$packageName], " +
+                    "installation=[$installationId]."
+        )
+
+        /*
+         * O novo DailyCheckinManager será conectado aqui
+         * depois que as rotas autenticadas forem criadas.
+         *
+         * ProcessLifecycleOwner
+         *     .get()
+         *     .lifecycle
+         *     .addObserver(dailyCheckinManager)
+         */
+    }
+
     override fun dependencies():
             List<Class<out Initializer<*>>> {
 
-        return emptyList()
+        return listOf(
+            androidx.lifecycle
+                .ProcessLifecycleInitializer::class.java
+        )
     }
 
     companion object {
