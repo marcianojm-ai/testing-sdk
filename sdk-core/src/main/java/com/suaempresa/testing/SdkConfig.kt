@@ -11,10 +11,10 @@ package com.suaempresa.testing
  */
 internal object SdkConfig {
 
-    const val SDK_VERSION = "1.0.13"
+    const val SDK_VERSION = "1.0.14"
 
     const val API_BASE_URL =
-        "http://192.168.100.3:5001/" +
+        "http://127.0.0.1:5001/" +
         "android-tester-saas-prod/us-central1/api"
 
     const val EVENTS_ENDPOINT =
