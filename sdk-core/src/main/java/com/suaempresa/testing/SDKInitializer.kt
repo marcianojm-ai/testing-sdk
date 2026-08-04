@@ -2,8 +2,8 @@ package com.suaempresa.testing
 
 import android.content.Context
 import android.util.Log
-import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.startup.Initializer
+import java.util.concurrent.Executors
 
 /**
  * Inicializa automaticamente o SDK quando o aplicativo é aberto.
@@ -21,51 +21,128 @@ class SDKInitializer : Initializer<Unit> {
             "SDK iniciando automaticamente."
         )
 
-        // 1. Gera ou recupera a identidade persistente do aparelho.
+        /*
+         * O installation_id identifica somente a instalação atual.
+         * Ele não representa a identidade global do testador.
+         */
         val identityManager =
             IdentityManager(applicationContext)
 
-        val deviceId =
+        val installationId =
             identityManager.getOrCreateInstallationId()
 
         Log.d(
             TAG,
-            "Identidade do aparelho: $deviceId"
+            "Installation ID carregado: $installationId"
         )
 
-        // 2. Consulta e armazena o Google Play Install Referrer.
+        /*
+         * A consulta ao Install Referrer é assíncrona
+         * e não bloqueia a abertura do aplicativo.
+         */
         val referrerManager =
             InstallReferrerManager(applicationContext)
 
-        referrerManager.checkAndSendReferrer(deviceId)
-
-        // 3. Monitora e envia as sessões de uso.
-        val sessionManager = SessionManager(
-            context = applicationContext,
-            deviceId = deviceId
+        referrerManager.checkAndSendReferrer(
+            installationId
         )
 
-        ProcessLifecycleOwner
-            .get()
-            .lifecycle
-            .addObserver(sessionManager)
+        /*
+         * A geração do fingerprint e a consulta HTTP
+         * são executadas fora da thread principal.
+         */
+        SDK_EXECUTOR.execute {
+            consultarStatusRemoto(
+                applicationContext
+            )
+        }
 
         Log.d(
             TAG,
-            "SDK inicializado com sucesso."
+            "Inicialização local do SDK concluída."
         )
+    }
+
+    private fun consultarStatusRemoto(
+        context: Context
+    ) {
+        try {
+            val fingerprintProvider =
+                AppFingerprintProvider(context)
+
+            val packageName =
+                fingerprintProvider.getPackageName()
+
+            val appFingerprint =
+                fingerprintProvider.getAppFingerprint()
+
+            val status =
+                SdkStatusClient().checkBlocking(
+                    packageName = packageName,
+                    appFingerprint = appFingerprint
+                )
+
+            when (status) {
+                SdkRemoteStatus.ACTIVE -> {
+                    Log.d(
+                        TAG,
+                        "SDK autorizado. O aplicativo está apto " +
+                                "para iniciar o novo fluxo de check-in."
+                    )
+
+                    /*
+                     * O novo gerenciador de check-in será
+                     * conectado aqui depois que suas rotas
+                     * autenticadas estiverem disponíveis.
+                     */
+                }
+
+                SdkRemoteStatus.NEWLY_ASSOCIATED -> {
+                    Log.d(
+                        TAG,
+                        "Aplicativo associado ao cadastro. " +
+                                "Esta primeira abertura técnica " +
+                                "não será contabilizada."
+                    )
+                }
+
+                SdkRemoteStatus.INACTIVE -> {
+                    Log.d(
+                        TAG,
+                        "SDK inativo para este aplicativo. " +
+                                "Nenhum uso será contabilizado."
+                    )
+                }
+
+                SdkRemoteStatus.UNAVAILABLE -> {
+                    Log.w(
+                        TAG,
+                        "Não foi possível validar o SDK. " +
+                                "Nenhum uso será contabilizado."
+                    )
+                }
+            }
+        } catch (exception: Exception) {
+            Log.e(
+                TAG,
+                "Erro durante a validação inicial do SDK. " +
+                        "Nenhum uso será contabilizado.",
+                exception
+            )
+        }
     }
 
     override fun dependencies():
-        List<Class<out Initializer<*>>> {
+            List<Class<out Initializer<*>>> {
 
-        return listOf(
-            androidx.lifecycle
-                .ProcessLifecycleInitializer::class.java
-        )
+        return emptyList()
     }
 
     companion object {
-        private const val TAG = "TestingSDK"
+        private const val TAG =
+            "TestingSDK"
+
+        private val SDK_EXECUTOR =
+            Executors.newSingleThreadExecutor()
     }
 }

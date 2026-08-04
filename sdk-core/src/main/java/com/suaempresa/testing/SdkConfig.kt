@@ -11,7 +11,7 @@ package com.suaempresa.testing
  */
 internal object SdkConfig {
 
-    const val SDK_VERSION = "1.0.11"
+    const val SDK_VERSION = "1.0.12"
 
     const val API_BASE_URL =
         "http://192.168.100.3:5001/" +
@@ -19,6 +19,8 @@ internal object SdkConfig {
 
     const val EVENTS_ENDPOINT =
         "$API_BASE_URL/events"
+    const val SDK_STATUS_ENDPOINT =
+        "$API_BASE_URL/sdk-status"
 
     const val CONNECTION_TIMEOUT_MS = 15_000
 
