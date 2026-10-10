@@ -1,28 +1,17 @@
 package com.suaempresa.testing
 
-/**
- * Configurações internas do SDK.
- *
- * Durante o desenvolvimento, o backend está sendo executado
- * localmente no computador.
- *
- * Antes da publicação definitiva do SDK, esta URL será
- * substituída por um endereço HTTPS de produção.
- */
+/** Configuração compilada dentro de cada variante do SDK. */
 internal object SdkConfig {
+    val SDK_VERSION: String = BuildConfig.SDK_VERSION
 
-    const val SDK_VERSION = "1.0.14"
+    val API_BASE_URL: String = EndpointPolicy.normalize(
+        value = BuildConfig.API_BASE_URL,
+        requireHttps = BuildConfig.BUILD_TYPE == "release"
+    )
 
-    const val API_BASE_URL =
-        "http://127.0.0.1:5001/" +
-        "android-tester-saas-prod/us-central1/api"
-
-    const val EVENTS_ENDPOINT =
-        "$API_BASE_URL/events"
-    const val SDK_STATUS_ENDPOINT =
+    val SDK_STATUS_ENDPOINT: String =
         "$API_BASE_URL/sdk-status"
 
-    const val CONNECTION_TIMEOUT_MS = 15_000
-
-    const val READ_TIMEOUT_MS = 15_000
+    const val CONNECTION_TIMEOUT_MS = 3_000
+    const val READ_TIMEOUT_MS = 3_000
 }

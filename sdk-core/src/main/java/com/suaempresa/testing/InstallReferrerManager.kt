@@ -1,187 +1,171 @@
 package com.suaempresa.testing
 
 import android.content.Context
-import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.android.installreferrer.api.InstallReferrerClient
 import com.android.installreferrer.api.InstallReferrerStateListener
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Consulta o Google Play Install Referrer e armazena
- * o resultado localmente para uso nos eventos de sessão.
+ * Lê apenas o convite versionado do AppPayBack transportado pela Google Play.
+ * Referrers comuns não são armazenados nem enviados.
  */
 internal class InstallReferrerManager(
-    context: Context
+    context: Context,
+    private val onParticipationToken: (String) -> Unit,
+    private val onRetryWindowExhausted: () -> Unit
 ) {
-
-    private val applicationContext =
-        context.applicationContext
-
-    private val referrerStore =
-        ReferrerStore(applicationContext)
+    private val applicationContext = context.applicationContext
+    private val main = Handler(Looper.getMainLooper())
+    private val retryPolicy = InstallReferrerRetryPolicy()
 
     /**
-     * Consulta o Install Referrer somente quando o aplicativo
-     * atual foi instalado ou atualizado pela Google Play.
+     * Inicia uma janela limitada de tentativas. Uma falha síncrona inicial é
+     * propagada para que TestingSDK possa tentar novamente sem recriar o monitor.
      */
-    fun checkAndSendReferrer(
-        installationId: String
-    ) {
-        if (!foiInstaladoPelaGooglePlay()) {
-            referrerStore.clear()
-
-            Log.d(
-                TAG,
-                "Aplicativo não foi instalado pela Google Play. " +
-                    "Referrer local removido para o aparelho " +
-                    "[$installationId]."
-            )
-
-            return
-        }
-
-        val referrerClient =
-            InstallReferrerClient
-                .newBuilder(applicationContext)
-                .build()
-
-        referrerClient.startConnection(
-            object : InstallReferrerStateListener {
-
-                override fun onInstallReferrerSetupFinished(
-                    responseCode: Int
-                ) {
-                    try {
-                        when (responseCode) {
-                            InstallReferrerClient
-                                .InstallReferrerResponse.OK -> {
-
-                                val response =
-                                    referrerClient.installReferrer
-
-                                val referrerUrl =
-                                    response.installReferrer
-
-                                referrerStore.save(referrerUrl)
-
-                                Log.d(
-                                    TAG,
-                                    "Install Referrer salvo para " +
-                                        "o aparelho [$installationId]: " +
-                                        referrerUrl
-                                )
-                            }
-
-                            InstallReferrerClient
-                                .InstallReferrerResponse
-                                .FEATURE_NOT_SUPPORTED -> {
-
-                                referrerStore.clear()
-
-                                Log.d(
-                                    TAG,
-                                    "Install Referrer não é " +
-                                        "suportado neste aparelho."
-                                )
-                            }
-
-                            InstallReferrerClient
-                                .InstallReferrerResponse
-                                .SERVICE_UNAVAILABLE -> {
-
-                                Log.d(
-                                    TAG,
-                                    "Serviço do Install Referrer " +
-                                        "indisponível no momento."
-                                )
-                            }
-
-                            else -> {
-                                Log.d(
-                                    TAG,
-                                    "Install Referrer não disponível. " +
-                                        "Código: $responseCode"
-                                )
-                            }
-                        }
-                    } catch (exception: Exception) {
-                        Log.e(
-                            TAG,
-                            "Erro ao consultar o Install Referrer.",
-                            exception
-                        )
-                    } finally {
-                        try {
-                            referrerClient.endConnection()
-                        } catch (_: Exception) {
-                            // A conexão já pode estar encerrada.
-                        }
-                    }
-                }
-
-                override fun onInstallReferrerServiceDisconnected() {
-                    Log.d(
-                        TAG,
-                        "Serviço do Install Referrer desconectado."
-                    )
-                }
-            }
+    fun checkAndSendReferrer() {
+        startAttempt(
+            attempt = 1,
+            propagateSynchronousFailure = true
         )
     }
 
-    /**
-     * Verifica o instalador registrado pelo Android.
-     */
-    private fun foiInstaladoPelaGooglePlay(): Boolean {
-        return try {
-            val packageManager =
-                applicationContext.packageManager
+    private fun startAttempt(
+        attempt: Int,
+        propagateSynchronousFailure: Boolean
+    ) {
+        val client = InstallReferrerClient
+            .newBuilder(applicationContext)
+            .build()
+        val completed = AtomicBoolean(false)
+        lateinit var watchdog: Runnable
 
-            val packageName =
-                applicationContext.packageName
+        fun finishAttempt(retry: Boolean) {
+            if (!completed.compareAndSet(false, true)) return
 
-            if (
-                Build.VERSION.SDK_INT >=
-                Build.VERSION_CODES.R
-            ) {
-                val installSourceInfo =
-                    packageManager.getInstallSourceInfo(
-                        packageName
-                    )
-
-                val instalador =
-                    installSourceInfo.installingPackageName
-
-                val iniciador =
-                    installSourceInfo.initiatingPackageName
-
-                instalador == GOOGLE_PLAY_PACKAGE ||
-                    iniciador == GOOGLE_PLAY_PACKAGE
-            } else {
-                @Suppress("DEPRECATION")
-                val instalador =
-                    packageManager.getInstallerPackageName(
-                        packageName
-                    )
-
-                instalador == GOOGLE_PLAY_PACKAGE
+            main.removeCallbacks(watchdog)
+            try {
+                client.endConnection()
+            } catch (_: Exception) {
+                // A conexão pode ainda não ter sido iniciada ou já estar encerrada.
             }
-        } catch (exception: Exception) {
-            Log.e(
-                TAG,
-                "Não foi possível identificar a origem " +
-                    "da instalação.",
-                exception
-            )
 
-            false
+            if (!retry) return
+            val delay = retryPolicy.delayAfterFailure(attempt)
+            if (delay == null) {
+                main.post(onRetryWindowExhausted)
+                return
+            }
+            main.postDelayed(
+                {
+                    startAttempt(
+                        attempt = attempt + 1,
+                        propagateSynchronousFailure = false
+                    )
+                },
+                delay
+            )
         }
+
+        watchdog = Runnable {
+            Log.d(TAG, "Install Referrer demorou para responder; nova tentativa agendada.")
+            finishAttempt(retry = true)
+        }
+        main.postDelayed(watchdog, ATTEMPT_TIMEOUT_MS)
+
+        try {
+            client.startConnection(
+                object : InstallReferrerStateListener {
+                    override fun onInstallReferrerSetupFinished(responseCode: Int) {
+                        if (completed.get()) return
+
+                        when (responseCode) {
+                            InstallReferrerClient.InstallReferrerResponse.OK -> {
+                                try {
+                                    processResponse(client)
+                                    finishAttempt(retry = false)
+                                } catch (_: Exception) {
+                                    Log.w(TAG, "Não foi possível processar o Install Referrer.")
+                                    finishAttempt(retry = true)
+                                }
+                            }
+
+                            InstallReferrerClient.InstallReferrerResponse.SERVICE_UNAVAILABLE -> {
+                                Log.d(TAG, "Serviço do Install Referrer indisponível no momento.")
+                                finishAttempt(retry = true)
+                            }
+
+                            InstallReferrerClient.InstallReferrerResponse.FEATURE_NOT_SUPPORTED -> {
+                                Log.d(TAG, "Install Referrer não é suportado neste aparelho.")
+                                finishAttempt(retry = false)
+                            }
+
+                            else -> {
+                                Log.d(TAG, "Install Referrer não disponível. Código: $responseCode")
+                                finishAttempt(retry = false)
+                            }
+                        }
+                    }
+
+                    override fun onInstallReferrerServiceDisconnected() {
+                        if (completed.get()) return
+                        Log.d(TAG, "Serviço do Install Referrer desconectado.")
+                        finishAttempt(retry = true)
+                    }
+                }
+            )
+        } catch (error: Exception) {
+            main.removeCallbacks(watchdog)
+            try {
+                client.endConnection()
+            } catch (_: Exception) {
+                // A conexão pode não ter sido iniciada.
+            }
+            completed.set(true)
+
+            if (propagateSynchronousFailure) throw error
+            scheduleAfterSynchronousFailure(attempt)
+        }
+    }
+
+    private fun scheduleAfterSynchronousFailure(attempt: Int) {
+        val delay = retryPolicy.delayAfterFailure(attempt)
+        if (delay == null) {
+            main.post(onRetryWindowExhausted)
+            return
+        }
+        main.postDelayed(
+            {
+                startAttempt(
+                    attempt = attempt + 1,
+                    propagateSynchronousFailure = false
+                )
+            },
+            delay
+        )
+    }
+
+    private fun processResponse(client: InstallReferrerClient) {
+        val referrer = client.installReferrer.installReferrer
+        if (!ParticipationReferrer.containsPlatformPayload(referrer)) {
+            Log.d(TAG, "Nenhum convite do AppPayBack foi encontrado nesta instalação.")
+            return
+        }
+
+        val token = ParticipationReferrer.extractToken(referrer)
+        if (token == null) {
+            Log.w(TAG, "Convite do AppPayBack inválido.")
+            return
+        }
+
+        onParticipationToken(token)
+        Log.d(TAG, "Convite do AppPayBack recebido.")
     }
 
     companion object {
         private const val TAG = "TestingSDK"
-
-        private const val GOOGLE_PLAY_PACKAGE =
-            "com.android.vending"
+        private const val ATTEMPT_TIMEOUT_MS = 10_000L
     }
 }

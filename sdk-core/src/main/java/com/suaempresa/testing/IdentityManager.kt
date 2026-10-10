@@ -1,22 +1,14 @@
 package com.suaempresa.testing
 
 import android.content.Context
-import android.provider.Settings
 import android.util.Log
 import java.io.File
 import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 import java.util.UUID
 
 /**
- * Gerencia as identificações usadas pelo SDK.
- *
- * device_id:
- * identifica o mesmo aparelho para este aplicativo.
- *
- * installation_id:
- * identifica a instalação atual e muda quando
- * o aplicativo é desinstalado ou seus dados são apagados.
+ * Gerencia o identificador da instalação atual.
+ * Ele muda quando o aplicativo é desinstalado ou seus dados são apagados.
  */
 class IdentityManager(
     context: Context
@@ -39,48 +31,6 @@ class IdentityManager(
             LEGACY_PREFERENCES_NAME,
             Context.MODE_PRIVATE
         )
-
-    /**
-     * Retorna uma identificação estável do aparelho,
-     * sem transmitir o ANDROID_ID original ao backend.
-     */
-    fun getStableDeviceId(): String {
-        val androidId =
-            try {
-                Settings.Secure.getString(
-                    applicationContext.contentResolver,
-                    Settings.Secure.ANDROID_ID
-                )
-            } catch (exception: Exception) {
-                Log.w(
-                    TAG,
-                    "Não foi possível consultar o ANDROID_ID.",
-                    exception
-                )
-
-                null
-            }
-
-        val identitySource =
-            if (!androidId.isNullOrBlank()) {
-                "$packageName|$androidId"
-            } else {
-                /*
-                 * Exceção rara: sem ANDROID_ID, usamos a
-                 * instalação atual. Nesse caso específico,
-                 * a identificação não sobreviverá à reinstalação.
-                 */
-                Log.w(
-                    TAG,
-                    "ANDROID_ID indisponível. " +
-                            "Será usada uma identificação temporária."
-                )
-
-                "$packageName|${getOrCreateInstallationId()}"
-            }
-
-        return sha256(identitySource)
-    }
 
     /**
      * Recupera ou cria o identificador exclusivo
@@ -199,27 +149,6 @@ class IdentityManager(
         } catch (_: Exception) {
             false
         }
-    }
-
-    /**
-     * Gera um hash SHA-256 sem expor a identificação
-     * original fornecida pelo Android.
-     */
-    private fun sha256(
-        value: String
-    ): String {
-        val digest =
-            MessageDigest.getInstance("SHA-256")
-
-        return digest
-            .digest(
-                value.toByteArray(
-                    StandardCharsets.UTF_8
-                )
-            )
-            .joinToString("") { byte ->
-                "%02x".format(byte)
-            }
     }
 
     companion object {

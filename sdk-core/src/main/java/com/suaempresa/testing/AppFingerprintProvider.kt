@@ -93,38 +93,47 @@ internal class AppFingerprintProvider(
                 )
             }
 
-        val signatures =
-            if (
-                Build.VERSION.SDK_INT >=
-                Build.VERSION_CODES.P
-            ) {
-                val signingInfo =
-                    requireNotNull(
-                        packageInfo.signingInfo
-                    ) {
-                        "Informações de assinatura indisponíveis."
+        if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.P
+        ) {
+            val signingInfo =
+                requireNotNull(
+                    packageInfo.signingInfo
+                ) {
+                    "Informações de assinatura indisponíveis."
+                }
+
+            val currentDigests =
+                signingInfo.apkContentsSigners
+                    .orEmpty()
+                    .map { signature ->
+                        sha256(signature.toByteArray())
                     }
 
-                if (
-                    signingInfo.hasMultipleSigners()
-                ) {
-                    signingInfo.apkContentsSigners
-                } else {
-                    signingInfo
-                        .signingCertificateHistory
-                }
-            } else {
-                packageInfo.signatures
-            }
+            val historyDigests =
+                signingInfo.signingCertificateHistory
+                    .orEmpty()
+                    .map { signature ->
+                        sha256(signature.toByteArray())
+                    }
 
-        return signatures
+            return SigningCertificatePolicy.selectDigests(
+                hasMultipleSigners =
+                    signingInfo.hasMultipleSigners(),
+                currentDigests = currentDigests,
+                certificateHistoryDigests =
+                    historyDigests
+            )
+        }
+
+        return packageInfo.signatures
             .orEmpty()
             .map { signature ->
-                sha256(
-                    signature.toByteArray()
-                )
+                sha256(signature.toByteArray())
             }
             .distinct()
+            .sorted()
     }
 
     /**

@@ -3,3 +3,9 @@
 /build/
 /sdk-core/build/
 .artifacts/
+/.kotlin/
+/.m2-test/
+/.inspect-*/
+/consumer-smoke/.gradle/
+/consumer-smoke/app/build/
+/local.properties
