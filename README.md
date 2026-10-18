@@ -40,6 +40,33 @@ dependencies {
 
 3. Click **Sync Now**. That's it: the SDK starts by itself when the app opens.
 
+### What else the app needs
+
+Nothing beyond the two steps above: no code, no extra permissions, no keys and
+no configuration files. Merged into your build automatically:
+
+- **Permissions:** `INTERNET` and `ACCESS_NETWORK_STATE` (normal permissions,
+  granted at install time; the user is never prompted).
+- **Startup:** the `com.apppayback.sdk.AppPayBackInitProvider` component.
+- **R8/ProGuard:** the SDK's keep rules (nothing to add to `proguard-rules.pro`).
+- **Libraries:** Google Play Install Referrer and the Kotlin standard library.
+
+Project requirements: `minSdk` 23+, the SDK build distributed through the
+Google Play closed testing track with a `versionCode` higher than production,
+and testers installing through the AppPayBack site button.
+
+Only if your project has these settings:
+
+- JitPack block filtered with `content { ... }`: include the
+  `com.github.marcianojm-ai` group.
+- `tools:node="remove"`/`"removeAll"` on `<provider>`: do not remove
+  `com.apppayback.sdk.AppPayBackInitProvider`, or the SDK will not start.
+- `network_security_config` with a domain allowlist or certificate pinning:
+  allow `apppaybacktesting.web.app` (HTTPS only).
+
+To keep the SDK out of your production build, add it to a closed-testing
+flavor only, for example `"alphaImplementation"("com.github.marcianojm-ai:testing-sdk:1.2.1")`.
+
 ### How it works
 
 1. You register the `applicationId` in the AppPayBack dashboard, add the
@@ -178,6 +205,21 @@ dependencies {
 ```
 
 Clique em **Sync Now**. O SDK inicia sozinho quando o aplicativo abre.
+
+### O que mais o app precisa
+
+Nada além disso: sem código, sem permissões extras, sem chaves e sem arquivos de
+configuração. Entram sozinhos no build as permissões `INTERNET` e
+`ACCESS_NETWORK_STATE` (normais, concedidas na instalação, sem perguntar ao
+usuário), o componente `com.apppayback.sdk.AppPayBackInitProvider`, as regras
+de R8/ProGuard e as bibliotecas Install Referrer e Kotlin.
+
+Requisitos: `minSdk` 23+, build com o SDK na faixa de teste fechado com
+`versionCode` maior que o da produção, e testadores instalando pelo botão do
+site. Só se o projeto tiver: repositório JitPack filtrado com `content { ... }`
+(inclua o grupo `com.github.marcianojm-ai`); `tools:node="remove"` em
+`<provider>` (não remova o `AppPayBackInitProvider`); `network_security_config`
+restrito ou com fixação de certificado (libere `apppaybacktesting.web.app`).
 
 ### Avisos de check-in
 
