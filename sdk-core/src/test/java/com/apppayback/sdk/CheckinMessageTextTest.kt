@@ -34,6 +34,15 @@ class CheckinMessageTextTest {
     }
 
     @Test
+    fun picksDeviceLanguageWithEnglishFallback() {
+        assertEquals("pt", CheckinMessageText.languageKey("pt"))
+        assertEquals("es", CheckinMessageText.languageKey("ES"))
+        assertEquals("en", CheckinMessageText.languageKey("en"))
+        assertEquals("en", CheckinMessageText.languageKey("fr"))
+        assertEquals("en", CheckinMessageText.languageKey(null))
+    }
+
+    @Test
     fun defaultsFollowDeviceLanguageWithEnglishFallback() {
         assertTrue(CheckinMessageText.defaultStarted("pt").contains("Mantenha o app aberto"))
         assertTrue(CheckinMessageText.defaultStarted("es").contains("Mantén la app abierta"))

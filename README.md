@@ -34,7 +34,7 @@ dependencyResolutionManagement {
 
 ```kotlin
 dependencies {
-    implementation("com.github.marcianojm-ai:testing-sdk:1.2.0")
+    implementation("com.github.marcianojm-ai:testing-sdk:1.2.1")
 }
 ```
 
@@ -59,8 +59,9 @@ the next attempt starts from zero. Only the server confirms a valid day.
 
 For linked testers only, the SDK shows two short toasts: one when the daily
 check-in starts ("keep the app open for 1 minute") and one when it is
-confirmed. Texts follow the device language (Portuguese, English or Spanish)
-and can be updated by AppPayBack without a new SDK release. People who did not
+confirmed. Texts follow the device language (Portuguese, English or Spanish,
+chosen on the device) and can be updated by AppPayBack without a new SDK
+release. People who did not
 install through an AppPayBack invite never see them.
 
 To turn them off, add this inside `<application>` in your `AndroidManifest.xml`:
@@ -83,17 +84,19 @@ To turn them off, add this inside `<application>` in your `AndroidManifest.xml`:
 
 ### Google Play Data safety
 
-Answer the form based on your whole app. For the AppPayBack SDK itself, the
-data sent to AppPayBack is:
+Answer the form based on your whole app. For the AppPayBack SDK, mark only:
 
-| Data | Play category | Purpose |
-| --- | --- | --- |
-| Random installation ID created by the SDK, and the participation credential of linked testers | Device or other IDs | App functionality (closed-test participation) |
-| Check-in timing while the app is open (start, heartbeats, finish) | App activity → App interactions | App functionality |
-| App package name, app version, SDK version, Android version and device language | App info and performance → Other app performance data | App functionality, compatibility |
+| Data type | What the SDK sends | Collected | Shared | Purpose |
+| --- | --- | --- | --- | --- |
+| Device or other IDs | A random installation ID created by the SDK, and the participation credential of linked testers | Yes | No | App functionality |
+| App activity → App interactions | When the app is open during a daily check-in (start, heartbeats, finish) | Yes | No | App functionality |
+
+Besides these, the SDK sends only your package name, your app's signing
+certificate hash and the SDK version, which describe your app, not the user.
 
 - The SDK does **not** collect names, email addresses, location, contacts,
-  advertising ID, Android ID, photos, files or any content from your app.
+  advertising ID, Android ID, device model, Android version, language, photos,
+  files or any content from your app.
 - Data is encrypted in transit (HTTPS) and processed by AppPayBack only to run
   the closed test.
 - The participation credential is stored on the device with AES-GCM and the
@@ -105,18 +108,23 @@ Data safety answers and privacy policy.
 
 ### Migrating from 1.1.0
 
-Change the version to `1.2.0`. Nothing else is required: existing tester links
+Change the version to `1.2.1`. Nothing else is required: existing tester links
 and check-ins keep working after the update. If your code ever called
 `TestingSDK` directly (not needed for normal use), use `AppPayBack` instead.
 
 ### Changelog
 
+**1.2.1**
+
+- Sends only the SDK version; app version, Android version and device
+  language are no longer sent (simpler Data safety answers).
+- Check-in texts arrive in all languages and the device picks its own.
+
 **1.2.0**
 
 - Check-in toasts for linked testers (PT/EN/ES), with a manifest opt-out.
 - Message texts can be updated from the server.
-- Sends app version, SDK version, Android version and device language with the
-  check-in, so developers can see which build each tester is running.
+- Reports the SDK version with the check-in.
 - Uses the AppPayBack site domain (`/sdk`) instead of the Cloud Functions URL.
 - Network timeouts raised from 3 s to 10 s for slow mobile networks.
 - The status request runs at most once a day per app version.
@@ -165,7 +173,7 @@ módulo do aplicativo:
 
 ```kotlin
 dependencies {
-    implementation("com.github.marcianojm-ai:testing-sdk:1.2.0")
+    implementation("com.github.marcianojm-ai:testing-sdk:1.2.1")
 }
 ```
 
@@ -186,18 +194,23 @@ desligar, adicione dentro de `<application>` no `AndroidManifest.xml`:
 
 ### Segurança dos dados (Google Play)
 
-O SDK envia ao AppPayBack: um ID aleatório da instalação e a credencial de
-participação (categoria "IDs do dispositivo ou outros IDs"), os horários do
-check-in com o app aberto ("Atividade no app → Interações com o app") e o
-pacote, a versão do app, a versão do SDK, a versão do Android e o idioma do
-aparelho ("Informações e desempenho do app → Outros dados de desempenho"). A
-finalidade é a funcionalidade do app (participação no teste fechado). O SDK não
-coleta nome, e-mail, localização, contatos, ID de publicidade, Android ID,
-fotos, arquivos nem conteúdo do aplicativo. Os dados trafegam criptografados
-(HTTPS). Isto é uma orientação, não aconselhamento jurídico.
+Marque apenas:
+
+- **IDs do dispositivo ou outros IDs**: coletado, não compartilhado,
+  finalidade "Funcionalidade do app" (ID aleatório da instalação e credencial
+  de participação do testador);
+- **Atividade no app → Interações com o app**: coletado, não compartilhado,
+  finalidade "Funcionalidade do app" (horários do check-in com o app aberto).
+
+Além disso, o SDK envia só o nome do pacote, o hash do certificado de
+assinatura do app e a versão do SDK, que descrevem o app e não o usuário. O SDK
+não coleta nome, e-mail, localização, contatos, ID de publicidade, Android ID,
+modelo do aparelho, versão do Android, idioma, fotos, arquivos nem conteúdo do
+aplicativo. Os dados trafegam criptografados (HTTPS). Isto é uma orientação,
+não aconselhamento jurídico.
 
 ### Atualizando da 1.1.0
 
-Troque a versão para `1.2.0`. Vínculos e check-ins existentes continuam
+Troque a versão para `1.2.1`. Vínculos e check-ins existentes continuam
 funcionando. Se o seu código chamava `TestingSDK` diretamente (o uso normal não
 precisa), use `AppPayBack`.

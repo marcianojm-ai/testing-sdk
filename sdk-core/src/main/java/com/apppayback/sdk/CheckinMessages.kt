@@ -9,8 +9,9 @@ import java.util.Locale
 
 /**
  * Avisos curtos ao testador: quando o check-in do dia começa e quando é
- * confirmado. Os textos vêm do servidor (que pode mudá-los ou desligá-los);
- * sem resposta do servidor, valem os textos padrão no idioma do aparelho.
+ * confirmado. O servidor envia os textos em todos os idiomas (e pode mudá-los
+ * ou desligá-los); o idioma é escolhido aqui no aparelho e nunca é enviado.
+ * Sem resposta do servidor, valem os textos padrão do SDK.
  *
  * O desenvolvedor pode desligar os avisos no AndroidManifest.xml:
  * <meta-data android:name="com.apppayback.sdk.SHOW_CHECKIN_MESSAGES"
@@ -23,34 +24,46 @@ internal class CheckinMessages(
     @Volatile
     private var serverAllows = true
 
+    /** idioma (pt, en, es) -> (início, confirmado), vindos do servidor. */
     @Volatile
-    private var serverStarted: String? = null
-
-    @Volatile
-    private var serverConfirmed: String? = null
+    private var serverTexts: Map<String, Pair<String, String>> = emptyMap()
 
     private val enabledByDeveloper: Boolean by lazy { readManifestFlag() }
 
     fun updateFromServer(body: JSONObject) {
         val messages = body.optJSONObject("mensagens") ?: return
         serverAllows = messages.optBoolean("exibir", true)
-        CheckinMessageText.sanitize(messages.optString("inicio"))?.let {
-            serverStarted = it
+        val texts = messages.optJSONObject("textos") ?: return
+        val parsed = HashMap<String, Pair<String, String>>()
+        for (key in CheckinMessageText.LANGUAGES) {
+            val entry = texts.optJSONObject(key) ?: continue
+            val started = CheckinMessageText.sanitize(entry.optString("inicio"))
+            val confirmed = CheckinMessageText.sanitize(entry.optString("confirmado"))
+            if (started != null && confirmed != null) {
+                parsed[key] = Pair(started, confirmed)
+            }
         }
-        CheckinMessageText.sanitize(messages.optString("confirmado"))?.let {
-            serverConfirmed = it
-        }
+        if (parsed.isNotEmpty()) serverTexts = parsed
     }
 
     fun showStarted() {
-        show(serverStarted ?: CheckinMessageText.defaultStarted(language()))
+        val language = language()
+        show(
+            serverTexts[language]?.first
+                ?: CheckinMessageText.defaultStarted(language)
+        )
     }
 
     fun showConfirmed() {
-        show(serverConfirmed ?: CheckinMessageText.defaultConfirmed(language()))
+        val language = language()
+        show(
+            serverTexts[language]?.second
+                ?: CheckinMessageText.defaultConfirmed(language)
+        )
     }
 
-    private fun language(): String = Locale.getDefault().language.orEmpty()
+    private fun language(): String =
+        CheckinMessageText.languageKey(Locale.getDefault().language)
 
     private fun show(text: String) {
         if (!enabledByDeveloper || !serverAllows) return
@@ -82,6 +95,14 @@ internal class CheckinMessages(
 /** Regras puras dos textos, testáveis fora do Android. */
 internal object CheckinMessageText {
     const val MAX_LENGTH = 140
+
+    /** Idiomas com texto próprio; os demais usam inglês. */
+    val LANGUAGES = listOf("pt", "en", "es")
+
+    fun languageKey(language: String?): String {
+        val key = language.orEmpty().lowercase(Locale.ROOT)
+        return if (key in LANGUAGES) key else "en"
+    }
 
     fun sanitize(value: String?): String? {
         if (value == null) return null
