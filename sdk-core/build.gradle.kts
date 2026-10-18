@@ -1,3 +1,6 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
@@ -11,7 +14,7 @@ group = "com.github.marcianojm-ai"
 version = sdkVersion
 
 android {
-    namespace = "com.suaempresa.testing"
+    namespace = "com.apppayback.sdk"
 
     compileSdk = 35
 
@@ -36,7 +39,7 @@ android {
             buildConfigField(
                 "String",
                 "API_BASE_URL",
-                "\"http://127.0.0.1:5001/android-tester-saas-prod/us-central1/api\""
+                "\"http://127.0.0.1:5001/android-tester-saas-prod/us-central1/api/sdk\""
             )
         }
 
@@ -44,18 +47,16 @@ android {
             buildConfigField(
                 "String",
                 "API_BASE_URL",
-                "\"https://us-central1-android-tester-saas-prod.cloudfunctions.net/api\""
+                "\"https://apppaybacktesting.web.app/sdk\""
             )
         }
     }
 
+    // Bytecode Java 8 e Kotlin 1.8: compatível com apps em versões antigas
+    // do Kotlin e do Android Gradle Plugin.
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
 
     publishing {
@@ -65,7 +66,17 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_1_8)
+        languageVersion.set(KotlinVersion.KOTLIN_1_8)
+        apiVersion.set(KotlinVersion.KOTLIN_1_8)
+    }
+}
+
 dependencies {
+    // Versão mínima da biblioteca Kotlin; o app pode usar uma mais nova.
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.22")
     testImplementation("junit:junit:4.13.2")
     implementation("com.android.installreferrer:installreferrer:2.2")
 }
@@ -82,7 +93,7 @@ afterEvaluate {
                 pom {
                     name.set("AppPayBack Android SDK")
                     description.set(
-                        "SDK Android para vínculo de participantes e check-ins do AppPayBack."
+                        "Android SDK for AppPayBack participant linking and daily check-ins."
                     )
                     url.set("https://github.com/marcianojm-ai/testing-sdk")
                 }

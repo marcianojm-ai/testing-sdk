@@ -7,7 +7,7 @@
 
     <application>
         <provider
-            android:name="com.suaempresa.testing.SDKInitProvider"
+            android:name="com.apppayback.sdk.AppPayBackInitProvider"
             android:authorities="${applicationId}.apppayback-init"
             android:exported="false"
             android:grantUriPermissions="false" />

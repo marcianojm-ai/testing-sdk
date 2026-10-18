@@ -9,3 +9,7 @@
 /consumer-smoke/.gradle/
 /consumer-smoke/app/build/
 /local.properties
+
+# IDE
+.idea/
+*.iml
